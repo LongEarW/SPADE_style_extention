@@ -61,8 +61,9 @@ class Pix2PixModel(torch.nn.Module):
 
     def create_optimizers(self, opt):
         G_params = list(self.netG.parameters())
-        if opt.use_vae:
-            G_params += list(self.netE.parameters())
+        # if opt.use_vae:
+        #     G_params += list(self.netE.parameters())
+        G_params += list(self.netE.parameters())
         if opt.isTrain:
             D_params = list(self.netD.parameters())
 
@@ -80,8 +81,9 @@ class Pix2PixModel(torch.nn.Module):
     def save(self, epoch):
         util.save_network(self.netG, 'G', epoch, self.opt)
         util.save_network(self.netD, 'D', epoch, self.opt)
-        if self.opt.use_vae:
-            util.save_network(self.netE, 'E', epoch, self.opt)
+        # if self.opt.use_vae:
+        #     util.save_network(self.netE, 'E', epoch, self.opt)
+        util.save_network(self.netE, 'E', epoch, self.opt)
 
     ############################################################################
     # Private helper methods
@@ -90,14 +92,15 @@ class Pix2PixModel(torch.nn.Module):
     def initialize_networks(self, opt):
         netG = networks.define_G(opt)
         netD = networks.define_D(opt) if opt.isTrain else None
-        netE = networks.define_E(opt) if opt.use_vae else None
+        netE = networks.define_E(opt)  # if opt.use_vae else None
 
         if not opt.isTrain or opt.continue_train:
             netG = util.load_network(netG, 'G', opt.which_epoch, opt)
             if opt.isTrain:
                 netD = util.load_network(netD, 'D', opt.which_epoch, opt)
-            if opt.use_vae:
-                netE = util.load_network(netE, 'E', opt.which_epoch, opt)
+            # if opt.use_vae:
+            #     netE = util.load_network(netE, 'E', opt.which_epoch, opt)
+            netE = util.load_network(netE, 'E', opt.which_epoch, opt)
 
         return netG, netD, netE
 
