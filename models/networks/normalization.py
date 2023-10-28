@@ -84,6 +84,7 @@ class SPADE(nn.Module):
 
         # The dimension of the intermediate embedding space. Yes, hardcoded.
         nhidden = 128
+        nhidden_style = 256  # style parameters' dimension
 
         pw = ks // 2
         self.mlp_shared = nn.Sequential(
@@ -93,18 +94,26 @@ class SPADE(nn.Module):
         self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
         self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
 
-    def forward(self, x, segmap):
+        self.mlp_gamma_style = nn.Linear(nhidden_style, norm_nc)  
+        self.mlp_beta_style = nn.Linear(nhidden_style, norm_nc)
+
+    def forward(self, x, segmap, style_param):
 
         # Part 1. generate parameter-free normalized activations
-        normalized = self.param_free_norm(x)
+        normalized = self.param_free_norm(x)  # Batch, norm_nc, H, W
 
         # Part 2. produce scaling and bias conditioned on semantic map
-        segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')
-        actv = self.mlp_shared(segmap)
-        gamma = self.mlp_gamma(actv)
-        beta = self.mlp_beta(actv)
+        segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')  # Batch, label_nc, H, W
+        actv = self.mlp_shared(segmap)  # Batch, nhidden, H, W
+        gamma = self.mlp_gamma(actv)  # Batch, norm_nc, H, W
+        beta = self.mlp_beta(actv)  # Batch, norm_nc, H, W
 
-        # apply scale and bias
-        out = normalized * (1 + gamma) + beta
+        # Part 3. produce scaling and bias per channel conditioned on style parameters
+        gamma_style = self.mlp_gamma_style(style_param[1]).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
+        beta_style = self.mlp_beta_style(style_param[0]).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
+
+        # Part 4. apply scale and bias
+        # out = normalized * (1 + gamma) + beta
+        out = normalized * (1 + gamma) * torch.exp(0.5 * gamma_style) + (beta + beta_style) / 2
 
         return out
