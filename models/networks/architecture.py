@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torch.nn.utils.spectral_norm as spectral_norm
-from models.networks.normalization import SPADE
+from models.networks.normalization import SPADE, AdaIN
 
 
 # ResNet block that uses SPADE.
@@ -121,3 +121,45 @@ class VGG19(torch.nn.Module):
         h_relu5 = self.slice5(h_relu4)
         out = [h_relu1, h_relu2, h_relu3, h_relu4, h_relu5]
         return out
+
+
+
+class AdaINResnetBlock(nn.Module):
+    def __init__(self, fin, fout, opt):
+        super().__init__()
+        # Attributes
+        self.learned_shortcut = (fin != fout)
+        fmiddle = min(fin, fout)
+
+        # create conv layers
+        self.conv_0 = nn.Conv2d(fin, fmiddle, kernel_size=3, padding=1)
+        self.conv_1 = nn.Conv2d(fmiddle, fout, kernel_size=3, padding=1)
+        if self.learned_shortcut:
+            self.conv_s = nn.Conv2d(fin, fout, kernel_size=1, bias=False)
+
+        # define normalization layers
+        self.norm_0 = AdaIN(fin)
+        self.norm_0 = AdaIN(fmiddle)
+        if self.learned_shortcut:
+            self.norm_s = AdaIN(fin)
+
+
+    def forward(self, x, z):
+        x_s = self.shortcut(x, z)
+
+        dx = self.conv_0(self.actvn(self.norm_0(x, seg)))
+        dx = self.conv_1(self.actvn(self.norm_1(dx, seg)))
+
+        out = x_s + dx
+
+        return out
+
+    def shortcut(self, x, z):
+        if self.learned_shortcut:
+            x_s = self.conv_s(self.norm_s(x, z))
+        else:
+            x_s = x
+        return x_s
+
+    def actvn(self, x):
+        return F.leaky_relu(x, 2e-1)

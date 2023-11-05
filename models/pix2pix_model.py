@@ -49,9 +49,9 @@ class Pix2PixModel(torch.nn.Module):
             d_loss = self.compute_discriminator_loss(
                 input_semantics, real_image)
             return d_loss
-        elif mode == 'encode_only':
-            z, mu, logvar = self.encode_z(real_image)
-            return mu, logvar
+        # elif mode == 'encode_only':
+        #     z, mu, logvar = self.encode_z(real_image)
+        #     return mu, logvar
         elif mode == 'inference':
             with torch.no_grad():
                 fake_image, _ = self.generate_fake(input_semantics, real_image)
@@ -179,18 +179,24 @@ class Pix2PixModel(torch.nn.Module):
 
         return D_losses
 
+    # def encode_z(self, real_image):
+    #     mu, logvar = self.netE(real_image)
+    #     z = self.reparameterize(mu, logvar)
+    #     return z, mu, logvar
+
     def encode_z(self, real_image):
-        mu, logvar = self.netE(real_image)
-        z = self.reparameterize(mu, logvar)
-        return z, mu, logvar
+        # encode image to style latent vector
+        style = self.netE(real_image)
+        return style
 
     def generate_fake(self, input_semantics, real_image, compute_kld_loss=False):
-        z = None
+        # z = None
         KLD_loss = None
-        if self.opt.use_vae:
-            z, mu, logvar = self.encode_z(real_image)
-            if compute_kld_loss:
-                KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
+        z = self.encode_z(real_image)
+        # if self.opt.use_vae:
+        #     z, mu, logvar = self.encode_z(real_image)
+        #     if compute_kld_loss:
+        #         KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
 
         fake_image = self.netG(input_semantics, z=z)
 

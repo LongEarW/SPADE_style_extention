@@ -10,6 +10,7 @@ from models.networks.base_network import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 from models.networks.architecture import ResnetBlock as ResnetBlock
 from models.networks.architecture import SPADEResnetBlock as SPADEResnetBlock
+from models.networks.architecture import AdaINResnetBlock
 
 
 class SPADEGenerator(BaseNetwork):
@@ -45,12 +46,14 @@ class SPADEGenerator(BaseNetwork):
         self.up_0 = SPADEResnetBlock(16 * nf, 8 * nf, opt)
         self.up_1 = SPADEResnetBlock(8 * nf, 4 * nf, opt)
         self.up_2 = SPADEResnetBlock(4 * nf, 2 * nf, opt)
-        self.up_3 = SPADEResnetBlock(2 * nf, 1 * nf, opt)
+        # self.up_3 = SPADEResnetBlock(2 * nf, 1 * nf, opt)
+        self.up_3 = AdaINResnetBlock(2 * nf, 1 * nf, opt)
 
         final_nc = nf
 
         if opt.num_upsampling_layers == 'most':
-            self.up_4 = SPADEResnetBlock(1 * nf, nf // 2, opt)
+            # self.up_4 = SPADEResnetBlock(1 * nf, nf // 2, opt)
+            self.up_4 = AdaINResnetBlock(1 * nf, nf // 2, opt)
             final_nc = nf // 2
 
         self.conv_img = nn.Conv2d(final_nc, 3, 3, padding=1)

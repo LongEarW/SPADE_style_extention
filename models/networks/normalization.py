@@ -108,3 +108,30 @@ class SPADE(nn.Module):
         out = normalized * (1 + gamma) + beta
 
         return out
+
+
+class AdaIN(nn.Module):
+    def __init__(self, norm_nc):
+        super().__init__()
+
+        self.param_free_norm = nn.InstanceNorm2d(norm_nc, affine=False)
+
+        # The dimension of the style latent. Yes, hardcoded.
+        style_nhidden = 256
+
+        self.fc_gamma = nn.Linear(style_nhidden, norm_nc)
+        self.fc_beta = nn.Linear(style_nhidden, norm_nc)
+
+    def forward(self, x, z):
+
+        # Part 1. generate parameter-free normalized activations
+        normalized = self.param_free_norm(x)  # B, C, H, W
+
+        # Part 2. produce scaling and bias conditioned on style latent
+        gamma = self.fc_gamma(z).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
+        beta = self.fc_beta(z)  # B, C, 1, 1
+
+        # apply scale and bias
+        out = normalized * (1 + gamma) + beta
+
+        return out
