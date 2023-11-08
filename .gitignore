@@ -5,3 +5,6 @@ results/
 *.zip
 *.pkl
 *.pyc
+model/networks/sync_batchnorm
+model/networks/Synchronized-BatchNorm-PyTorch
+datasets/
