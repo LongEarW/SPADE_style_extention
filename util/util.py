@@ -198,6 +198,15 @@ def save_network(net, label, epoch, opt):
     torch.save(net.cpu().state_dict(), save_path)
     if len(opt.gpu_ids) and torch.cuda.is_available():
         net.cuda()
+    # remove old model to save space
+    if not isinstance(epoch, str):  # epoch saving, not latest saving
+        old_filename = '%s_net_%s.pth' % (epoch - 1, label)
+        old_path = os.path.join(opt.checkpoints_dir, opt.name, old_filename)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+            print("old epoch %s removed" % (old_filename))
+        else:
+            print("File %s not exist" % (old_path))
 
 
 def load_network(net, label, epoch, opt):
