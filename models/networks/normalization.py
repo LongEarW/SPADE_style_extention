@@ -129,7 +129,7 @@ class AdaIN(nn.Module):
 
         # Part 2. produce scaling and bias conditioned on style latent
         gamma = self.fc_gamma(z).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
-        beta = self.fc_beta(z)  # B, C, 1, 1
+        beta = self.fc_beta(z).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
 
         # apply scale and bias
         out = normalized * (1 + gamma) + beta

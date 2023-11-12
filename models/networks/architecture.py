@@ -139,7 +139,7 @@ class AdaINResnetBlock(nn.Module):
 
         # define normalization layers
         self.norm_0 = AdaIN(fin)
-        self.norm_0 = AdaIN(fmiddle)
+        self.norm_1 = AdaIN(fmiddle)
         if self.learned_shortcut:
             self.norm_s = AdaIN(fin)
 
@@ -147,8 +147,8 @@ class AdaINResnetBlock(nn.Module):
     def forward(self, x, z):
         x_s = self.shortcut(x, z)
 
-        dx = self.conv_0(self.actvn(self.norm_0(x, seg)))
-        dx = self.conv_1(self.actvn(self.norm_1(dx, seg)))
+        dx = self.conv_0(self.actvn(self.norm_0(x, z)))
+        dx = self.conv_1(self.actvn(self.norm_1(dx, z)))
 
         out = x_s + dx
 
