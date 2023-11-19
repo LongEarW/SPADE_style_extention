@@ -97,8 +97,8 @@ class SPADE(nn.Module):
         self.mlp_gamma_style = nn.Linear(z_dim, norm_nc)  
         self.mlp_beta_style = nn.Linear(z_dim, norm_nc)
         # mixing weights
-        self.blending_gamma = nn.Parameter(torch.zeros(1), requires_grad=True)  # start from zero
-        self.blending_beta = nn.Parameter(torch.zeros(1), requires_grad=True)
+        self.blending_gamma = torch.nn.Parameter(torch.tensor([-9.0, 0.0]))  # start from small weight for style
+        self.blending_beta = torch.nn.Parameter(torch.tensor([-9.0, 0.0]))
 
     def forward(self, x, segmap, z):
 
@@ -116,10 +116,11 @@ class SPADE(nn.Module):
         beta_style = self.mlp_beta_style(z).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
 
         # Part 4. get weighted scaling and bias: logic from SEAN
-        gamma_style_weight = F.sigmoid(self.blending_gamma)
-        beta_style_weight = F.sigmoid(self.blending_beta)
-        gamma = gamma_style_weight * gamma_style + (1 - gamma_style_weight) * gamma_spade  # starts from all gamma from SPADE
-        beta = beta_style_weight * beta_style + (1 - beta_style_weight) * beta_spade
+        gamma_weight = self.blending_gamma.softmax(-1)
+        beta_weight = self.blending_beta.softmax(-1)
+        gamma = gamma_weight[0] * gamma_style + gamma_weight[-1] * gamma_spade  # starts from all gamma from SPADE
+        beta = beta_weight[0] * beta_style + beta_weight[-1] * beta_spade
+        
         # apply scale and bias
         out = normalized * (1 + gamma) + beta
 
