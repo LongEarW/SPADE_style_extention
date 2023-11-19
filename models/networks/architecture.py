@@ -40,26 +40,26 @@ class SPADEResnetBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = opt.norm_G.replace('spectral', '')
-        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc)
-        self.norm_1 = SPADE(spade_config_str, fmiddle, opt.semantic_nc)
+        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc, opt.z_dim)
+        self.norm_1 = SPADE(spade_config_str, fmiddle, opt.semantic_nc, opt.z_dim)
         if self.learned_shortcut:
-            self.norm_s = SPADE(spade_config_str, fin, opt.semantic_nc)
+            self.norm_s = SPADE(spade_config_str, fin, opt.semantic_nc, opt.z_dim)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input
-    def forward(self, x, seg):
-        x_s = self.shortcut(x, seg)
+    def forward(self, x, seg, z):
+        x_s = self.shortcut(x, seg, z)
 
-        dx = self.conv_0(self.actvn(self.norm_0(x, seg)))
-        dx = self.conv_1(self.actvn(self.norm_1(dx, seg)))
+        dx = self.conv_0(self.actvn(self.norm_0(x, seg, z)))
+        dx = self.conv_1(self.actvn(self.norm_1(dx, seg, z)))
 
         out = x_s + dx
 
         return out
 
-    def shortcut(self, x, seg):
+    def shortcut(self, x, seg, z):
         if self.learned_shortcut:
-            x_s = self.conv_s(self.norm_s(x, seg))
+            x_s = self.conv_s(self.norm_s(x, seg, z))
         else:
             x_s = x
         return x_s

@@ -64,7 +64,7 @@ def get_nonspade_norm_layer(opt, norm_type='instance'):
 # |norm_nc|: the #channels of the normalized activations, hence the output dim of SPADE
 # |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
 class SPADE(nn.Module):
-    def __init__(self, config_text, norm_nc, label_nc):
+    def __init__(self, config_text, norm_nc, label_nc, z_dim):
         super().__init__()
 
         assert config_text.startswith('spade')
@@ -93,7 +93,14 @@ class SPADE(nn.Module):
         self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
         self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
 
-    def forward(self, x, segmap):
+        # style 
+        self.mlp_gamma_style = nn.Linear(z_dim, norm_nc)  
+        self.mlp_beta_style = nn.Linear(z_dim, norm_nc)
+        # mixing weights
+        self.blending_gamma = nn.Parameter(torch.zeros(1), requires_grad=True)  # start from zero
+        self.blending_beta = nn.Parameter(torch.zeros(1), requires_grad=True)
+
+    def forward(self, x, segmap, z):
 
         # Part 1. generate parameter-free normalized activations
         normalized = self.param_free_norm(x)
@@ -101,9 +108,18 @@ class SPADE(nn.Module):
         # Part 2. produce scaling and bias conditioned on semantic map
         segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')
         actv = self.mlp_shared(segmap)
-        gamma = self.mlp_gamma(actv)
-        beta = self.mlp_beta(actv)
+        gamma_spade = self.mlp_gamma(actv)
+        beta_spade = self.mlp_beta(actv)
 
+        # Part 3. produce scaling and bias conditioned on latent
+        gamma_style = self.mlp_gamma_style(z).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
+        beta_style = self.mlp_beta_style(z).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
+
+        # Part 4. get weighted scaling and bias: logic from SEAN
+        gamma_style_weight = F.sigmoid(self.blending_gamma)
+        beta_style_weight = F.sigmoid(self.blending_beta)
+        gamma = gamma_style_weight * gamma_style + (1 - gamma_style_weight) * gamma_spade  # starts from all gamma from SPADE
+        beta = beta_style_weight * beta_style + (1 - beta_style_weight) * beta_spade
         # apply scale and bias
         out = normalized * (1 + gamma) + beta
 
