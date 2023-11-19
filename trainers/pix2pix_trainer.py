@@ -6,6 +6,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 from models.networks.sync_batchnorm import DataParallelWithCallback
 from models.pix2pix_model import Pix2PixModel
 
+import math
 
 class Pix2PixTrainer():
     """
@@ -25,27 +26,76 @@ class Pix2PixTrainer():
             self.pix2pix_model_on_one_gpu = self.pix2pix_model
 
         self.generated = None
+        self.g_losses = {}
+        self.d_losses = {}
         if opt.isTrain:
             self.optimizer_G, self.optimizer_D = \
                 self.pix2pix_model_on_one_gpu.create_optimizers(opt)
             self.old_lr = opt.lr
 
+        self.mini_batch_size = 2
+
     def run_generator_one_step(self, data):
         self.optimizer_G.zero_grad()
-        g_losses, generated = self.pix2pix_model(data, mode='generator')
-        g_loss = sum(g_losses.values()).mean()
-        g_loss.backward()
+        self.g_losses = {}
+        batch_size = data['label'].size()[0]
+        num_mini_batch = math.ceil(batch_size / self.mini_batch_size) 
+        self.generated = None
+        for mini_batch_idx in range(num_mini_batch):
+            # split minibatch
+            start_idx = mini_batch_idx * self.mini_batch_size
+            end_idx = start_idx + self.mini_batch_size
+            mini_data = {'label': data['label'][start_idx: end_idx],
+                        'instance': data['instance'][start_idx: end_idx],
+                        'image': data['image'][start_idx: end_idx],
+                        'path': data['path'][start_idx: end_idx]
+                        }
+            mini_g_losses, mini_generated = self.pix2pix_model(mini_data, mode='generator')
+            # accumulate gradient
+            mini_g_loss = sum(mini_g_losses.values()) / batch_size
+            mini_g_loss.backward()
+            # record losses: KL, GAN, GAN_Feat, VGG
+            for key, l in mini_g_losses.items():
+                if key in self.g_losses:
+                    self.g_losses[key] = torch.cat((self.g_losses[key], mini_g_losses[key]), 0)
+                else:
+                    self.g_losses[key] = mini_g_losses[key]
+
+            # collect generated images
+            if not self.generated:
+                self.generated = mini_generated
+            else:
+                self.generated = torch.cat((self.generated, mini_generated), 0)
+        # update with accumulated gradient
         self.optimizer_G.step()
-        self.g_losses = g_losses
-        self.generated = generated
 
     def run_discriminator_one_step(self, data):
         self.optimizer_D.zero_grad()
-        d_losses = self.pix2pix_model(data, mode='discriminator')
-        d_loss = sum(d_losses.values()).mean()
-        d_loss.backward()
+        self.d_losses = {}
+        batch_size = data['label'].size()[0]
+        num_mini_batch = math.ceil(batch_size / self.mini_batch_size) 
+        for mini_batch_idx in range(num_mini_batch):
+            # split minibatch
+            start_idx = mini_batch_idx * self.mini_batch_size
+            end_idx = start_idx + self.mini_batch_size
+            mini_data = {'label': data['label'][start_idx: end_idx],
+                        'instance': data['instance'][start_idx: end_idx],
+                        'image': data['image'][start_idx: end_idx],
+                        'path': data['path'][start_idx: end_idx]
+                        }
+            mini_d_losses = self.pix2pix_model(mini_data, mode='discriminator')
+            # accumulate gradient
+            mini_d_loss = sum(mini_d_losses.values()) / batch_size
+            mini_d_loss.backward()
+            # record losses: D_Fake, D_real
+            for key, l in mini_d_losses.items():
+                if key in self.g_losses:
+                    self.d_losses[key] = torch.cat((self.d_losses[key], mini_d_loss[key]), 0)
+                else:
+                    self.d_losses[key] = mini_g_losses[key]
+                    
+        # update with accumulated gradient
         self.optimizer_D.step()
-        self.d_losses = d_losses
 
     def get_latest_losses(self):
         return {**self.g_losses, **self.d_losses}
