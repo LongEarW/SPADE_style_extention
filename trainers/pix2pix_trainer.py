@@ -7,6 +7,7 @@ from models.networks.sync_batchnorm import DataParallelWithCallback
 from models.pix2pix_model import Pix2PixModel
 
 import math
+import torch 
 
 class Pix2PixTrainer():
     """
@@ -25,7 +26,7 @@ class Pix2PixTrainer():
         else:
             self.pix2pix_model_on_one_gpu = self.pix2pix_model
 
-        self.generated = None
+        self.generated = torch.empty(0).cuda()
         self.g_losses = {}
         self.d_losses = {}
         if opt.isTrain:
@@ -40,7 +41,7 @@ class Pix2PixTrainer():
         self.g_losses = {}
         batch_size = data['label'].size()[0]
         num_mini_batch = math.ceil(batch_size / self.mini_batch_size) 
-        self.generated = None
+        self.generated = torch.empty(0).cuda()
         for mini_batch_idx in range(num_mini_batch):
             # split minibatch
             start_idx = mini_batch_idx * self.mini_batch_size
@@ -52,20 +53,17 @@ class Pix2PixTrainer():
                         }
             mini_g_losses, mini_generated = self.pix2pix_model(mini_data, mode='generator')
             # accumulate gradient
-            mini_g_loss = sum(mini_g_losses.values()) / batch_size
+            mini_g_loss = sum(mini_g_losses.values()).mean() * mini_data['label'].size()[0] / batch_size
             mini_g_loss.backward()
             # record losses: KL, GAN, GAN_Feat, VGG
             for key, l in mini_g_losses.items():
                 if key in self.g_losses:
-                    self.g_losses[key] = torch.cat((self.g_losses[key], mini_g_losses[key]), 0)
+                    self.g_losses[key] = self.g_losses[key] + mini_g_losses[key] * mini_data['label'].size()[0] / batch_size
                 else:
-                    self.g_losses[key] = mini_g_losses[key]
-
-            # collect generated images
-            if not self.generated:
-                self.generated = mini_generated
-            else:
-                self.generated = torch.cat((self.generated, mini_generated), 0)
+                    self.g_losses[key] = mini_g_losses[key] * mini_data['label'].size()[0] / batch_size
+            # collect generated images 
+            self.generated = torch.cat((self.generated, mini_generated), 0)
+                
         # update with accumulated gradient
         self.optimizer_G.step()
 
@@ -85,15 +83,14 @@ class Pix2PixTrainer():
                         }
             mini_d_losses = self.pix2pix_model(mini_data, mode='discriminator')
             # accumulate gradient
-            mini_d_loss = sum(mini_d_losses.values()) / batch_size
+            mini_d_loss = sum(mini_d_losses.values()).mean() * mini_data['label'].size()[0] / batch_size
             mini_d_loss.backward()
             # record losses: D_Fake, D_real
             for key, l in mini_d_losses.items():
-                if key in self.g_losses:
-                    self.d_losses[key] = torch.cat((self.d_losses[key], mini_d_loss[key]), 0)
+                if key in self.d_losses:
+                    self.d_losses[key] = self.d_losses[key] + mini_d_losses[key] * mini_data['label'].size()[0] / batch_size
                 else:
-                    self.d_losses[key] = mini_g_losses[key]
-                    
+                    self.d_losses[key] = mini_d_losses[key] * mini_data['label'].size()[0] / batch_size
         # update with accumulated gradient
         self.optimizer_D.step()
 
