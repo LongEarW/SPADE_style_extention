@@ -22,7 +22,9 @@ class Visualizer():
         self.win_size = opt.display_winsize
         self.name = opt.name
         if self.tf_log:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
             import tensorflow as tf
+            tf.config.set_visible_devices([], 'GPU')
             self.tf = tf
             self.log_dir = os.path.join(opt.checkpoints_dir, opt.name, 'logs')
             # self.writer = tf.summary.FileWriter(self.log_dir)
