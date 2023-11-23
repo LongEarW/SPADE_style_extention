@@ -64,7 +64,7 @@ def get_nonspade_norm_layer(opt, norm_type='instance'):
 # |norm_nc|: the #channels of the normalized activations, hence the output dim of SPADE
 # |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
 class SPADE(nn.Module):
-    def __init__(self, config_text, norm_nc, label_nc):
+    def __init__(self, config_text, norm_nc, label_nc, opt):
         super().__init__()
 
         assert config_text.startswith('spade')
@@ -97,7 +97,7 @@ class SPADE(nn.Module):
         self.mlp_gamma_style = nn.Linear(nhidden_style, norm_nc)  
         self.mlp_beta_style = nn.Linear(nhidden_style, norm_nc)
 
-        self.style_weight = 0.1
+        self.style_weight = opt.style_weight
 
     def forward(self, x, segmap, style_param):
 
