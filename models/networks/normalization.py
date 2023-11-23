@@ -97,6 +97,8 @@ class SPADE(nn.Module):
         self.mlp_gamma_style = nn.Linear(nhidden_style, norm_nc)  
         self.mlp_beta_style = nn.Linear(nhidden_style, norm_nc)
 
+        self.style_weight = 0.1
+
     def forward(self, x, segmap, style_param):
 
         # Part 1. generate parameter-free normalized activations
@@ -105,15 +107,16 @@ class SPADE(nn.Module):
         # Part 2. produce scaling and bias conditioned on semantic map
         segmap = F.interpolate(segmap, size=x.size()[2:], mode='nearest')  # Batch, label_nc, H, W
         actv = self.mlp_shared(segmap)  # Batch, nhidden, H, W
-        gamma = self.mlp_gamma(actv)  # Batch, norm_nc, H, W
-        beta = self.mlp_beta(actv)  # Batch, norm_nc, H, W
+        gamma_seg = self.mlp_gamma(actv)  # Batch, norm_nc, H, W
+        beta_seg = self.mlp_beta(actv)  # Batch, norm_nc, H, W
 
         # Part 3. produce scaling and bias per channel conditioned on style parameters
         gamma_style = self.mlp_gamma_style(style_param[1]).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
         beta_style = self.mlp_beta_style(style_param[0]).unsqueeze(-1).unsqueeze(-1)  # Batch, norm_nc, 1, 1
 
         # Part 4. apply scale and bias
-        # out = normalized * (1 + gamma) + beta
-        out = normalized * (1 + gamma) * torch.exp(0.5 * gamma_style) + (beta + beta_style) / 2
+        gamma = (1 + gamma_seg) * (1 - self.style_weight) + torch.exp(0.5 * gamma_style) * self.style_weight
+        beta = beta_seg * (1 - self.style_weight) + beta_style * self.style_weight
+        out = normalized * gamma + beta
 
         return out

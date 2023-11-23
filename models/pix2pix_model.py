@@ -61,9 +61,8 @@ class Pix2PixModel(torch.nn.Module):
 
     def create_optimizers(self, opt):
         G_params = list(self.netG.parameters())
-        # if opt.use_vae:
-        #     G_params += list(self.netE.parameters())
-        G_params += list(self.netE.parameters())
+        if opt.use_vae:
+            G_params += list(self.netE.parameters())
         if opt.isTrain:
             D_params = list(self.netD.parameters())
 
@@ -81,9 +80,8 @@ class Pix2PixModel(torch.nn.Module):
     def save(self, epoch):
         util.save_network(self.netG, 'G', epoch, self.opt)
         util.save_network(self.netD, 'D', epoch, self.opt)
-        # if self.opt.use_vae:
-        #     util.save_network(self.netE, 'E', epoch, self.opt)
-        util.save_network(self.netE, 'E', epoch, self.opt)
+        if self.opt.use_vae:
+            util.save_network(self.netE, 'E', epoch, self.opt)
 
     ############################################################################
     # Private helper methods
@@ -98,9 +96,8 @@ class Pix2PixModel(torch.nn.Module):
             netG = util.load_network(netG, 'G', opt.which_epoch, opt)
             if opt.isTrain:
                 netD = util.load_network(netD, 'D', opt.which_epoch, opt)
-            # if opt.use_vae:
-            #     netE = util.load_network(netE, 'E', opt.which_epoch, opt)
-            netE = util.load_network(netE, 'E', opt.which_epoch, opt)
+            if opt.use_vae:
+                netE = util.load_network(netE, 'E', opt.which_epoch, opt)
 
         return netG, netD, netE
 
@@ -187,22 +184,17 @@ class Pix2PixModel(torch.nn.Module):
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
 
-    def encode_z_param(self, real_image):
-        # encode image to style affirm parameter
-        mu, logvar = self.netE(real_image)
-        return mu, logvar
-
     def generate_fake(self, input_semantics, real_image, compute_kld_loss=False):
         z = None
         KLD_loss = None
 
         style_param = self.encode_z_param(real_image)
-        # if self.opt.use_vae:
-        #     z, mu, logvar = self.encode_z(real_image)
-        #     if compute_kld_loss:
-        #         KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
+        if self.opt.use_vae:
+            z, mu, logvar = self.encode_z(real_image)
+            if compute_kld_loss:
+                KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
 
-        fake_image = self.netG(input_semantics, style_param=style_param)
+        fake_image = self.netG(input_semantics, z=z, style_param=style_param)
 
         assert (not compute_kld_loss) or self.opt.use_vae, \
             "You cannot compute KLD loss if opt.use_vae == False"
