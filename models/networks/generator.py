@@ -73,7 +73,7 @@ class SPADEGenerator(BaseNetwork):
 
         return sw, sh
 
-    def forward(self, seg,  z=z, style_param=None):
+    def forward(self, seg, z, style_param=None):
 
         if self.opt.use_vae:
             # we sample z from unit normal and reshape the tensor

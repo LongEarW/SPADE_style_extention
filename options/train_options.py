@@ -46,7 +46,5 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--netD', type=str, default='multiscale', help='(n_layers|multiscale|image)')
         parser.add_argument('--lambda_kld', type=float, default=0.05)
 
-        # for encoder
-        parser.add_argument('--style_weight', type=float, default=0.05)
         self.isTrain = True
         return parser

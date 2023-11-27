@@ -66,7 +66,11 @@ class BaseOptions():
         parser.add_argument('--nef', type=int, default=16, help='# of encoder filters in the first conv layer')
         parser.add_argument('--use_vae', action='store_true', help='enable training with an image encoder.')
 
+        # for encoder
+        parser.add_argument('--style_weight', type=float, default=0.05)
+        
         self.initialized = True
+
         return parser
 
     def gather_options(self):

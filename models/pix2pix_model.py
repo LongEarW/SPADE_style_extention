@@ -188,13 +188,12 @@ class Pix2PixModel(torch.nn.Module):
         z = None
         KLD_loss = None
 
-        style_param = self.encode_z_param(real_image)
         if self.opt.use_vae:
             z, mu, logvar = self.encode_z(real_image)
             if compute_kld_loss:
                 KLD_loss = self.KLDLoss(mu, logvar) * self.opt.lambda_kld
 
-        fake_image = self.netG(input_semantics, z=z, style_param=style_param)
+        fake_image = self.netG(input_semantics, z=z, style_param=(mu, logvar))
 
         assert (not compute_kld_loss) or self.opt.use_vae, \
             "You cannot compute KLD loss if opt.use_vae == False"
