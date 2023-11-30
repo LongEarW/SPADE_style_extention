@@ -29,9 +29,8 @@ class ConvEncoder(BaseNetwork):
             self.layer6 = norm_layer(nn.Conv2d(ndf * 8, ndf * 8, kw, stride=2, padding=pw))
 
         self.so = s0 = 4
-        # self.fc_mu = nn.Linear(ndf * 8 * s0 * s0, 256)
-        # self.fc_var = nn.Linear(ndf * 8 * s0 * s0, 256)
-        self.fc = nn.Linear(ndf * 8 * s0 * s0, 256)
+        self.fc_mu = nn.Linear(ndf * 8 * s0 * s0, 256)
+        self.fc_var = nn.Linear(ndf * 8 * s0 * s0, 256)
 
         self.actvn = nn.LeakyReLU(0.2, False)
         self.opt = opt
@@ -50,9 +49,7 @@ class ConvEncoder(BaseNetwork):
         x = self.actvn(x)
 
         x = x.view(x.size(0), -1)
-        # mu = self.fc_mu(x)
-        # logvar = self.fc_var(x)
-        x = self.fc(x)
+        mu = self.fc_mu(x)
+        logvar = self.fc_var(x)
 
-        # return mu, logvar
-        return x
+        return mu, logvar
