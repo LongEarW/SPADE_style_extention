@@ -76,7 +76,7 @@ class SPADEGenerator(BaseNetwork):
 
         return sw, sh
 
-    def forward(self, input, z=None):
+    def forward(self, input, z=None, style_param=None):
         seg = input
 
         if self.opt.use_vae:
@@ -109,11 +109,11 @@ class SPADEGenerator(BaseNetwork):
         x = self.up(x)
         x = self.up_2(x, seg)
         x = self.up(x)
-        x = self.up_3(x, z)
+        x = self.up_3(x, style_param)
 
         if self.opt.num_upsampling_layers == 'most':
             x = self.up(x)
-            x = self.up_4(x, z)
+            x = self.up_4(x, style_param)
 
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)

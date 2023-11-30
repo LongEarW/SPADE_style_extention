@@ -122,16 +122,16 @@ class AdaIN(nn.Module):
         self.fc_gamma = nn.Linear(style_nhidden, norm_nc)
         self.fc_beta = nn.Linear(style_nhidden, norm_nc)
 
-    def forward(self, x, z):
+    def forward(self, x, style_param):
 
         # Part 1. generate parameter-free normalized activations
         normalized = self.param_free_norm(x)  # B, C, H, W
 
-        # Part 2. produce scaling and bias conditioned on style latent
-        gamma = self.fc_gamma(z).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
-        beta = self.fc_beta(z).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
+        # Part 2. produce scaling and bias conditioned on style
+        gamma = self.fc_gamma(style_param[-1]).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
+        beta = self.fc_beta(style_param[0]).unsqueeze(-1).unsqueeze(-1)  # B, C, 1, 1
 
         # apply scale and bias
-        out = normalized * (1 + gamma) + beta
+        out = normalized * torch.exp(0.5 * gamma) + beta
 
         return out

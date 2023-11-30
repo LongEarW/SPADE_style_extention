@@ -144,19 +144,19 @@ class AdaINResnetBlock(nn.Module):
             self.norm_s = AdaIN(fin)
 
 
-    def forward(self, x, z):
-        x_s = self.shortcut(x, z)
+    def forward(self, x, style_param):
+        x_s = self.shortcut(x, style_param)
 
-        dx = self.conv_0(self.actvn(self.norm_0(x, z)))
-        dx = self.conv_1(self.actvn(self.norm_1(dx, z)))
+        dx = self.conv_0(self.actvn(self.norm_0(x, style_param)))
+        dx = self.conv_1(self.actvn(self.norm_1(dx, style_param)))
 
         out = x_s + dx
 
         return out
 
-    def shortcut(self, x, z):
+    def shortcut(self, x, style_param):
         if self.learned_shortcut:
-            x_s = self.conv_s(self.norm_s(x, z))
+            x_s = self.conv_s(self.norm_s(x, style_param))
         else:
             x_s = x
         return x_s
