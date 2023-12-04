@@ -13,6 +13,8 @@ try:
     from StringIO import StringIO  # Python 2.7
 except ImportError:
     from io import BytesIO         # Python 3.x
+from collections import OrderedDict
+
 
 class Visualizer():
     def __init__(self, opt):
@@ -147,6 +149,37 @@ class Visualizer():
     # save image to the disk
     def save_images(self, webpage, visuals, image_path):        
         visuals = self.convert_visuals_to_numpy(visuals)        
+        
+        image_dir = webpage.get_image_dir()
+        short_path = ntpath.basename(image_path[0])
+        name = os.path.splitext(short_path)[0]
+
+        webpage.add_header(name)
+        ims = []
+        txts = []
+        links = []
+
+        for label, image_numpy in visuals.items():
+            image_name = os.path.join(label, '%s.png' % (name))
+            save_path = os.path.join(image_dir, image_name)
+            util.save_image(image_numpy, save_path, create_dir=True)
+
+            ims.append(image_name)
+            txts.append(label)
+            links.append(image_name)
+        webpage.add_images(ims, txts, links, width=self.win_size)
+
+    # save image to the disk for comparison
+    def save_images_compare(self, webpage, visuals, image_path, no_conversion=None):
+        visuals_tmp = OrderedDict()
+        for k in visuals:
+            if k not in no_conversion:
+                visuals_tmp[k] = visuals[k]
+
+        visuals_tmp = self.convert_visuals_to_numpy(visuals_tmp)
+        for k in visuals:
+            if k in visuals_tmp:
+                visuals[k] = visuals_tmp[k]
         
         image_dir = webpage.get_image_dir()
         short_path = ntpath.basename(image_path[0])
